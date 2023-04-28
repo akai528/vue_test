@@ -1,0 +1,25 @@
+import Vue from 'vue';
+import VueRouter from 'vue-router';
+
+
+import Home from '@/components/HelloWorld';
+import Login from '@/components/pages/Login';
+
+
+
+Vue.use(VueRouter);
+
+export default new Router({
+    routes: [
+        {
+            name:'首頁',
+            path:'/',
+            component: Home,
+        },
+        {
+            name:'Login',
+            path:'/login',
+            component: Login,
+        },
+    ],
+});
