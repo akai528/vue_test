@@ -1,21 +1,18 @@
 <template>
   <div>
     <loading :active.sync="isLoading"></loading>
+
     <div class="text-right mt-4">
-      <button class="btn btn-primary"
-        @click="openModal(true)">
-        建立新的產品</button>
+      <button type="button" class="btn btn-primary" @click="openProductModal(true)">建立新的產品</button>
     </div>
-    <table class="table mt-4">
+    <table class="table mt-4 table-striped">
       <thead>
-        <tr>
-          <th width="120">分類</th>
-          <th>產品名稱</th>
-          <th width="120">原價</th>
-          <th width="120">售價</th>
-          <th width="100">是否啟用</th>
-          <th width="80">編輯</th>
-        </tr>
+        <th width="20%">分類</th>
+        <th width="35%">產品名稱</th>
+        <th width="10%">原價</th>
+        <th width="10%">售價</th>
+        <th width="10%">是否啟用</th>
+        <th width="15%">功能</th>
       </thead>
       <tbody>
         <tr v-for="(item) in products" :key="item.id">
@@ -27,30 +24,24 @@
           <td class="text-right">
             {{ item.price | currency }}
           </td>
-          <td>
+          <td class="text-center">
             <span v-if="item.is_enabled" class="text-success">啟用</span>
-            <span v-else>未啟用</span>
+            <span v-else class="text-danger">停用</span>
           </td>
           <td>
-            <div class="btn-group">
-              <button class="btn btn-outline-primary btn-sm"
-              @click="openModal(false, item)">編輯</button>
-              <button class="btn btn-outline-danger btn-sm"
-                @click="openDelProductModal(item)"
-              >刪除</button>
-            </div>
+            <button class="btn btn-outline-primary btn-sm"  @click="openProductModal(false, item)">編輯</button>
+            <button class="btn btn-outline-danger btn-sm"  @click="openDelProductModal(item)">刪除</button>
           </td>
         </tr>
       </tbody>
     </table>
-
-    <Pagination :pages="pagination" @emitPages="getProducts"></Pagination>
-    <!-- Modal -->
+    <pagination emitMethod='emitGetProducts' :page="pagination" v-on:emitGetProducts="getProducts"></pagination>
+    <!-- productModal -->
     <div class="modal fade" id="productModal" tabindex="-1" role="dialog"
       aria-labelledby="exampleModalLabel" aria-hidden="true">
       <div class="modal-dialog modal-lg" role="document">
         <div class="modal-content border-0">
-          <div class="modal-header bg-dark text-white">
+          <div class="modal-header bg-primary text-white">
             <h5 class="modal-title" id="exampleModalLabel">
               <span>新增產品</span>
             </h5>
@@ -74,7 +65,8 @@
                   <input type="file" id="customFile" class="form-control"
                     ref="files" @change="uploadFile">
                 </div>
-                <img class="img-fluid" :src="tempProduct.imageUrl" alt="">
+                <img img="https://images.unsplash.com/photo-1483985988355-763728e1935b?ixlib=rb-0.3.5&ixid=eyJhcHBfaWQiOjEyMDd9&s=828346ed697837ce808cae68d3ddc3cf&auto=format&fit=crop&w=1350&q=80"
+                  class="img-fluid" :src="tempProduct.imageUrl" alt="">
               </div>
               <div class="col-sm-8">
                 <div class="form-group">
@@ -144,11 +136,12 @@
           </div>
           <div class="modal-footer">
             <button type="button" class="btn btn-outline-secondary" data-dismiss="modal">取消</button>
-            <button type="button" class="btn btn-primary" @click="updateProduct">確認</button>
+            <button type="button" class="btn btn-primary" @click="saveProduct">確認</button>
           </div>
         </div>
       </div>
     </div>
+    <!-- delProductModal -->
     <div class="modal fade" id="delProductModal" tabindex="-1" role="dialog"
       aria-labelledby="exampleModalLabel" aria-hidden="true">
       <div class="modal-dialog" role="document">
@@ -166,8 +159,7 @@
           </div>
           <div class="modal-footer">
             <button type="button" class="btn btn-outline-secondary" data-dismiss="modal">取消</button>
-            <button type="button" class="btn btn-danger"
-              @click="delProduct">確認刪除</button>
+            <button type="button" class="btn btn-danger" @click="deleteProduct">確認刪除</button>
           </div>
         </div>
       </div>
@@ -176,113 +168,115 @@
 </template>
 
 <script>
-import $ from 'jquery';
-import Pagination from '../Pagination';
+import $ from 'jquery'
+import pagination from './Pagination'
 export default {
-  data() {
+  data: function () {
     return {
       products: [],
       pagination: {},
       tempProduct: {},
-      isNew: false,
+      isCreated: false,
       isLoading: false,
       status: {
-        fileUploading: false,
-      },
-    };
+        fileUploading: false
+      }
+    }
   },
   components: {
-    Pagination,
+    pagination
   },
   methods: {
-    getProducts(page = 1) {
-      const api = `${process.env.APIPATH}/api/${process.env.CUSTOMPATH}/admin/products?page=${page}`; // 'http://localhost:3000/api/casper/products';
-      const vm = this;
-      console.log(process.env.APIisLoadingPATH, process.env.CUSTOMPATH);
-      vm.isLoading = true;
-      this.$http.get(api).then((response) => {
-        console.log(response.data);
+    getProducts (page = 1) {
+      const api = `${process.env.API_PATH}/api/${process.env.CUSTOM_PATH}/admin/products?page=${page}`
+      const vm = this
+      vm.isLoading = true
+      this.$http.get(api).then(response => {
+        vm.isLoading = false
         if (response.data.success) {
-          vm.isLoading = false;
-          vm.products = response.data.products;
-          vm.pagination = response.data.pagination;
+          vm.products = response.data.products
+          vm.pagination = response.data.pagination
+        } else {
+          this.$bus.$emit('message:push', `取得產品列表失敗: ${response.data.message}`, 'danger')
         }
-      });
+      })
     },
-    openModal(isNew, item) {
-      if (isNew) {
-        this.tempProduct = {};
-        this.isNew = true;
+    openDelProductModal (item) {
+      this.tempProduct = Object.assign({}, item)
+      $('#delProductModal').modal('show')
+    },
+    deleteProduct () {
+      const vm = this
+      const api = `${process.env.API_PATH}/api/${process.env.CUSTOM_PATH}/admin/product/${vm.tempProduct.id}`
+      this.$http.delete(api).then(response => {
+        if (response.data.success) {
+          vm.tempProduct = {}
+          vm.getProducts()
+        } else {
+          // todo: 等待加入錯誤判斷
+        }
+      })
+      $('#delProductModal').modal('hide')
+    },
+    openProductModal (isCreated, item) {
+      // 清空上傳檔案的 input 元件內容
+      document.getElementById('customFile').value = ''
+      if (isCreated) {
+        this.tempProduct = {}
+        this.isCreated = true
       } else {
-        this.tempProduct = Object.assign({}, item);
-        this.isNew = false;
+        this.tempProduct = Object.assign({}, item)
+        this.isCreated = false
       }
-      $('#productModal').modal('show');
+      $('#productModal').modal('show')
     },
-    updateProduct() {
-      let api = `${process.env.APIPATH}/api/${process.env.CUSTOMPATH}/admin/product`; // 'http://localhost:3000/api/casper/products';
-      let httpMethod = 'post';
-      const vm = this;
-      if (!vm.isNew) {
-        api = `${process.env.APIPATH}/api/${process.env.CUSTOMPATH}/admin/product/${vm.tempProduct.id}`;
-        httpMethod = 'put';
+    saveProduct () {
+      // todo: 等待加入判斷圖片是否正在上傳
+      const vm = this
+      let api = `${process.env.API_PATH}/api/${process.env.CUSTOM_PATH}/admin/product`
+      let requestMethod = 'post'
+      if (!vm.isCreated) {
+        api = `${process.env.API_PATH}/api/${process.env.CUSTOM_PATH}/admin/product/${vm.tempProduct.id}`
+        requestMethod = 'put'
       }
-      console.log(process.env.APIPATH, process.env.CUSTOMPATH);
-      this.$http[httpMethod](api, { data: vm.tempProduct }).then((response) => {
-        console.log(response.data);
+      this.$http[requestMethod](api, { data: vm.tempProduct }).then(response => {
         if (response.data.success) {
-          $('#productModal').modal('hide');
-          vm.getProducts();
+          vm.tempProduct = {}
+          vm.getProducts()
+          $('#productModal').modal('hide')
         } else {
-          $('#productModal').modal('hide');
-          vm.getProducts();
-          console.log('新增失敗');
+          // todo: 等待加入錯誤判斷
         }
-        // vm.products = response.data.products;
-      });
+      })
     },
-    openDelProductModal(item) {
-      const vm = this;
-      $('#delProductModal').modal('show');
-      vm.tempProduct = Object.assign({}, item);
-    },
-    delProduct() {
-      const vm = this;
-      const url = `${process.env.APIPATH}/api/${process.env.CUSTOMPATH}/admin/product/${vm.tempProduct.id}`;
-      this.$http.delete(url).then((response) => {
-        console.log(response, vm.tempProduct);
-        $('#delProductModal').modal('hide');
-        vm.isLoading = false;
-        this.getProducts();
-      });
-    },
-    uploadFile() {
-      console.log(this);
-      const uploadedFile = this.$refs.files.files[0];
-      const vm = this;
-      const formData = new FormData();
-      formData.append('file-to-upload', uploadedFile);
-      const url = `${process.env.APIPATH}/api/${process.env.CUSTOMPATH}/admin/upload`;
-      vm.status.fileUploading = true;
-      this.$http.post(url, formData, {
+    uploadFile () {
+      const uploadedFile = this.$refs.files.files[0]
+      if (typeof (uploadedFile) === 'undefined') {
+        return
+      }
+      const vm = this
+      const formData = new FormData()
+      formData.append('file-to-upload', uploadedFile)
+      const api = `${process.env.API_PATH}/api/${process.env.CUSTOM_PATH}/admin/upload`
+      vm.status.fileUploading = true
+      this.$http.post(api, formData, {
         headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      }).then((response) => {
-        console.log(response.data);
-        vm.status.fileUploading = false;
-        if (response.data.success) {
-          // vm.tempProduct.imageUrl = response.data.imageUrl;
-          // console.log(vm.tempProduct);
-          vm.$set(vm.tempProduct, 'imageUrl', response.data.imageUrl);
-        } else {
-          this.$bus.$emit('messsage:push', response.data.message, 'danger');
+          'Content-Type': 'multipart/form-data'
         }
-      });
-    },
+      }).then(response => {
+        vm.status.fileUploading = false
+        if (response.data.success) {
+          vm.$set(vm.tempProduct, 'imageUrl', response.data.imageUrl)
+        } else {
+          this.$bus.$emit('message:push', `上傳檔案失敗: ${response.data.message}`, 'danger')
+        }
+      })
+    }
   },
-  created() {
-    this.getProducts();
-  },
-};
+  created () {
+    const sessionToken = document.cookie.replace(/(?:(?:^|.*;\s*)sessionToken\s*=\s*([^;]*).*$)|^.*$/, '$1')
+    this.$http.defaults.headers.common.Authorization = sessionToken
+    this.getProducts()
+  }
+}
 </script>

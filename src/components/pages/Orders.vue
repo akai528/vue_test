@@ -1,22 +1,18 @@
 <template>
   <div>
-    <Loading :active.sync="isLoading"></Loading>
-    <table class="table mt-4">
+    <loading :active.sync="isLoading"></loading>
+
+    <table class="table mt-4 table-striped">
       <thead>
-        <tr>
-          <th>購買時間</th>
-          <th>Email</th>
-          <th>購買款項</th>
-          <th>應付金額</th>
-          <th>是否付款</th>
-        </tr>
+        <th width="20%">使用者</th>
+        <th width="20%">產品</th>
+        <th width="10%">備註</th>
+        <th width="10%">應付金額</th>
+        <th width="20%">是否付款</th>
       </thead>
       <tbody>
-        <tr v-for="(item, key) in sortOrder" :key="key"
-          v-if="orders.length"
-          :class="{'text-secondary': !item.is_paid}">
-          <td>{{ item.create_at | date }}</td>
-          <td><span v-text="item.user.email" v-if="item.user"></span></td>
+        <tr v-for="(item) in orders" :key="item.id">
+          <td>{{ item.user.email }}</td>
           <td>
             <ul class="list-unstyled">
               <li v-for="(product, i) in item.products" :key="i">
@@ -25,63 +21,52 @@
               </li>
             </ul>
           </td>
-          <td class="text-right">{{ item.total | currency }}</td>
-          <td>
-            <strong v-if="item.is_paid" class="text-success">已付款</strong>
-            <span v-else class="text-muted">尚未起用</span>
+          <td>{{ item.message }}</td>
+          <td>{{ item.total | currency }}</td>
+          <td class="text-center">
+            <span v-if="item.is_paid" class="text-success">已付款</span>
+            <span v-else class="text-danger">未付款</span>
           </td>
         </tr>
       </tbody>
     </table>
-
-    <Pagination :pages="pagination" @emitPages="getOrders"></Pagination>
+    <pagination emitMethod='emitGetOrders' :page="pagination" v-on:emitGetOrders="getOrders"></pagination>
   </div>
 </template>
 
 <script>
-import Pagination from '../Pagination';
+import pagination from './Pagination'
 export default {
-  data() {
+  data: function () {
     return {
-      orders: {},
-      isNew: false,
+      orders: [],
       pagination: {},
-      isLoading: false,
-    };
+      isLoading: false
+    }
   },
   components: {
-    Pagination,
+    pagination
   },
   methods: {
-    getOrders(currentPage = 1) {
-      const vm = this;
-      const url = `${process.env.APIPATH}/api/${process.env.CUSTOMPATH}/admin/orders?page=${currentPage}`;
-      vm.isLoading = true;
-      this.$http.get(url, vm.tempProduct).then((response) => {
-        vm.orders = response.data.orders;
-        vm.pagination = response.data.pagination;
-        vm.isLoading = false;
-        console.log(response);
-      });
-    },
+    getOrders (page = 1) {
+      const api = `${process.env.API_PATH}/api/${process.env.CUSTOM_PATH}/admin/orders?page=${page}`
+      const vm = this
+      vm.isLoading = true
+      this.$http.get(api).then(response => {
+        if (response.data.success) {
+          vm.orders = response.data.orders
+          vm.pagination = response.data.pagination
+        } else {
+          this.$bus.$emit('message:push', `取得訂單列表失敗: ${response.data.message}`, 'danger')
+        }
+        vm.isLoading = false
+      })
+    }
   },
-  computed: {
-    sortOrder() {
-      const vm = this;
-      let newOrder = [];
-      if (vm.orders.length) {
-        newOrder = vm.orders.sort((a, b) => {
-          const aIsPaid = a.is_paid ? 1 : 0;
-          const bIsPaid = b.is_paid ? 1 : 0;
-          return bIsPaid - aIsPaid;
-        });
-      }
-      return newOrder;
-    },
-  },
-  created() {
-    this.getOrders();
-    console.log(process.env.APIPATH);
-  },
-};
+  created () {
+    const sessionToken = document.cookie.replace(/(?:(?:^|.*;\s*)sessionToken\s*=\s*([^;]*).*$)|^.*$/, '$1')
+    this.$http.defaults.headers.common.Authorization = sessionToken
+    this.getOrders()
+  }
+}
 </script>

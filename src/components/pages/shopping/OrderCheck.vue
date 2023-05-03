@@ -13,13 +13,13 @@
             <tr v-for="item in order.products" :key="item.id">
               <td class="align-middle">{{ item.product.title }}</td>
               <td class="align-middle">{{ item.qty }}/{{ item.product.unit }}</td>
-              <td class="align-middle text-right">{{ item.final_total }}</td>
+              <td class="align-middle text-right">{{ item.final_total | currency }}</td>
             </tr>
           </tbody>
           <tfoot>
             <tr>
               <td colspan="2" class="text-right">總計</td>
-              <td class="text-right">{{ order.total }}</td>
+              <td class="text-right">{{ order.total | currency }}</td>
             </tr>
           </tfoot>
         </table>
@@ -91,7 +91,7 @@ export default {
       this.$http.post(api).then(response => {
         vm.isLoading = false
         if (response.data.success) {
-          vm.getOrder()
+          vm.$router.push('/products')
           this.$bus.$emit('message:push', '付款成功', 'success')
         } else {
           this.$bus.$emit('message:push', `付款失敗: ${response.data.message}`, 'danger')
